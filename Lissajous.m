@@ -1,7 +1,10 @@
-% Clear the workspace, command window
+ % Clear the workspace, command window
 clear all; clc;
 
 % Input parameters
+p = 4;          % number of decimal places relevant to calculation
+steps = 1001;   % number of steps
+t0 = 0.000;     % start time (s)
 x0 = 0;         % x initial position (10^-6 m)
 y0 = 0;         % y initial position (10^-6 m)
 A = 1;          % x peak to peak (10^-6 m)
@@ -10,27 +13,23 @@ fxMin = 1;      % minimum integer x-frequency to test (Hz)
 fxMax = 10;     % maximum integer x-frequency to test (Hz)
 fyMin = 1;      % minimum integer y-frequency to test (Hz)
 fyMax = 10;     % maximum integer y-frequency to test (Hz)
-dt = 0.001;     % time step size (s)
-tMin = 0.000;   % start time (s)
-tMax = 1.000;   % end time (s)
-p = 6;          % number of decimal places relevant to calculation
 
 % Generate data points for t, x, y, vx, vy, and VMag for each fx, fy pair
-% using nested for-loops.
+% using nested for-loops over each fx,fy pair.
 for fx = fxMin:fxMax
     for fy = fyMin:fyMax
 
         % Setup input vectors
-        xi0 = [x0 y0];              % x,y initial position vector
-        Ai = [A B];                 % x,y amplitudes vector
-        fi = [fx fy];               % fx,fy frequencies vector
-        tMax = lcm(fx,fy)/(fx*fy);  % calculate scan time
-        t = tMin:dt:tMax;           % time step vector
+        xi0 = [x0 y0];                  % x,y initial position vector
+        Ai = [A B];                     % x,y amplitudes vector
+        fi = [fx fy];                   % fx,fy frequencies vector
+        tf = t0 + lcm(fx,fy)/(fx*fy);   % calculate scan time
+        t = linspace(t0,tf,steps);      % time step vector
         
         % Calculate data points for specified fx and fy.
-        xi = Xi(xi0,Ai,fi,t);       % x,y-position points
-        vi = Vi(Ai,fi,t);           % x,y-velocity component points
-        v  = VMag(vi);              % speed
+        xi = Xi(xi0,Ai,fi,t);           % x,y-position points
+        vi = Vi(Ai,fi,t);               % x,y-velocity component points
+        v  = VMag(vi);                  % speed
         
         % Calculate intersection points
         xInter = intersections(xi,p);
