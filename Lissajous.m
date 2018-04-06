@@ -20,7 +20,7 @@ for fx = fxMin:fxMax
     for fy = fyMin:fyMax
 
         % Setup input vectors
-        xi0 = [x0 y0];                  % x,y initial position vector
+         xi0 = [x0 y0];                  % x,y initial position vector
         Ai = [A B];                     % x,y amplitudes vector
         fi = [fx fy];                   % fx,fy frequencies vector
         tf = t0 + lcm(fx,fy)/(fx*fy);   % calculate scan time
@@ -33,7 +33,7 @@ for fx = fxMin:fxMax
         
         % Calculate intersection points
         xInter = intersections(xi,p);
-
+        
         % Plot scan and intersection points of scan curve.
         plot(xi(1,:),xi(2,:))
         xlabel(fx)
@@ -339,7 +339,108 @@ function xInter = intersections(xi1,p)
             x_condition2 = (x_inter <= x_upper2) && (x_inter >= x_lower2);
             y_condition2 = (y_inter <= y_upper2) && (y_inter >= y_lower2);
             if x_condition1 && y_condition1 && x_condition2 && y_condition2
-                xInter = [xInter, [x_inter; y_inter]];
+%                 xInter = [xInter, [x_inter; y_inter]];
+                xInter = addUniquePoint(xInter, x_inter, y_inter);
+            end
+        end
+    end
+end
+
+% A function that inserts x-y point pairs into a given ordered matrix if
+% not already present.  The inputs are an ordered 2xN matrix of x-y points
+% and two scalars representing the new x-y point.
+function newMatrix = addUniquePoint(matOld, x, y)
+    
+    % Length of the ordered matrix.
+    mat_length = length(matOld);
+    
+    % Check to see if matrix is empty. If empty, add point.
+    if mat_length < 1
+        newMatrix = [x; y];
+        
+    % For cases of one or more points.
+    else
+        % If the new point is equal to either of the end points in the
+        % matrix, then don't add them and return the original matrix.
+        dupl_cond1 = (matOld(1,1) == x) && (matOld(2,1) == y);
+        dupl_cond2 = (matOld(1,end) == x) && (matOld(2,end) == y);
+        if dupl_cond1 || dupl_cond2
+            newMatrix = matOld;
+        
+        % If the new x-value is less than any other in the matrix, add the 
+        % point in front.
+        elseif matOld(1,1) > x
+            newMatrix = [[x; y], matOld];
+
+        % If the new x-value is greater than any other in the matrix, add 
+        % the point at the end.
+        elseif matOld(1,end) < x
+            newMatrix = [matOld, [x; y]];
+
+        % If the new x-value is equal to the smallest in the matrix and 
+        % the new y-value is less than the associated y-value, then add 
+        % the point in front.
+        elseif matOld(1,1) == x && matOld(2,1) > y
+            newMatrix = [[x; y], matOld];
+
+        % If the new x-value is equal to the largest in the matrix and the 
+        % new y-value is greater than the associated y-value, then add the 
+        % point at the end.
+        elseif matOld(1,end) == x && matOld(2,end) < y
+            newMatrix = [matOld, [x; y]];
+    
+        % If the matrix contains two or more points and none of the 
+        % previous conditions are satisfied, use a partition method to 
+        % find the index of insertion and insert if the new point is unique.
+        else
+            k_max = mat_length;             % max index
+            k_min = 1;                      % min index
+            k_partition = round(k_max/2,0); % starting partition index
+
+            % Continue checking ordered subpartitions until the insertion 
+            % index is determined or its found that the new point is a 
+            % duplicate.
+            while (k_max - k_min) > 1
+
+                % Determine if the new x-point is larger, smaller, or equal 
+                % to the x-value at the partition and select a 
+                % corresponding subpartition.
+                if x < matOld(1, k_partition)
+                    k_max = k_partition;
+                    k_partition = k_min + round((k_max - k_min)/2,0);
+                    
+                elseif x > matOld(1, k_partition)
+                    k_min = k_partition;
+                    k_partition = k_min + round((k_max - k_min)/2,0);
+                    
+                else 
+                    % When the new x-point is equal to the x-value at the 
+                    % partition, use the new y-point and the y-value at the 
+                    % partition to determine the next subpartition.
+                    if y < matOld(2, k_partition)
+                        k_max = k_partition;
+                        k_partition = k_min + round((k_max - k_min)/2,0);
+                        
+                    elseif y > matOld(2, k_partition)
+                        k_min = k_partition;
+                        k_partition = k_min + round((k_max - k_min)/2,0);
+                        
+                    else
+                        % If the new point is already in the matrix, set 
+                        % the partition position to zero so it is not added.
+                        k_partition = 0;
+                        break;
+                    end
+                end
+            end
+
+            % Using the results of the partition method, insert the new 
+            % point into the matrix or discard if not unique.
+            if k_partition == 0     % flag that the point is not unique
+                newMatrix = matOld;
+                
+            else
+                newMatrix = [matOld(:,1:k_min), [x; y], matOld(:,k_max:end)];
             end
         end
     end
