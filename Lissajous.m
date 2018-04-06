@@ -34,6 +34,9 @@ for fx = fxMin:fxMax
         % Calculate intersection points
         xInter = intersections(xi,p);
         
+        % Calculate the outer edge points
+        outerPoints = findOuterPoints(xi,t,p);
+        
         % Plot scan and intersection points of scan curve.
         plot(xi(1,:),xi(2,:))
         xlabel(fx)
@@ -41,6 +44,9 @@ for fx = fxMin:fxMax
         hold on
         if sum(size(xInter))>0
             scatter(xInter(1,:),xInter(2,:))
+        end
+        if sum(size(outerPoints))>0
+            scatter(outerPoints(1,:),outerPoints(2,:))
         end
         pause;
         hold off
@@ -449,6 +455,79 @@ function newMatrix = addUniquePoint(matOld, x, y)
             else
                 newMatrix = [matOld(:,1:k_min), [x; y], matOld(:,k_max:end)];
             end
+        end
+    end
+end
+
+% A function to find the indicies of the local extrema on the curves.
+function extrema = findExtrema(x,t,p)
+
+    % Simulatenously calculate all of the line segment slopes.
+    dx = x(1:(end-1)) - x(2:end);
+    dt = t(1:(end-1)) - t(2:end);
+    m = round(dx./dt, p);
+
+    % Search for points where the slope changes from positive to negative
+    % and return the indices.
+    extrema = [];
+    for i = 1:(length(m)-1)
+        if (m(i) > 0) ~= (m(i+1) > 0)
+            % Choose the point with the larger magnitude.
+            if abs(m(i)) > abs(m(i+1))
+                extrema = [extrema, i];
+            else
+                extrema = [extrema, i+1];
+            end
+        end
+    end
+end
+
+% A function that finds the extrema points on the outer edges of the curve.
+function outerPoints = findOuterPoints(xi,t,p)
+    
+    outerPoints =[];
+    
+    % Find all of the outer points related to the x-extrema and y-extrema.
+    xExtrema = findExtrema(xi(1,:),t,p);
+    yExtrema = findExtrema(xi(2,:),t,p);
+    
+    % Compile a complete matrix of these outer points.
+    unsortedPoints = [xi(:,xExtrema), xi(:,yExtrema)];
+
+    % Partially sort the matrix based on the x-values.
+    [semiSorted, semiSortInd] = sort(unsortedPoints(1,:));
+    semiSorted = [semiSorted; unsortedPoints(2,semiSortInd)];
+    
+    % Perform a secondary sort based on the y-values.
+    k_min = 1;                  % starting position for subset
+    k_max = 1;                  % ending position for subset
+    [r c] = size(semiSorted);   % size of partially sorted matrix
+    
+    % Loop through each x,y-pair in the matrix and identify groups with
+    % equal x-values. Sort the associated y-values.
+    for k = 2:c
+        % If the current x-value is different from the last, you've found
+        % the end of a subset.  Sort the y-values and add the points to the
+        % return matrix.  Then reset the lower boundary for the subset.
+        if semiSorted(1,k-1) ~= semiSorted(1,k)
+            sortedSubsectionX = semiSorted(1,k_min:k_max);
+            sortedSubsectionY = sort(semiSorted(2,k_min:k_max));
+            sortedSubSection = [sortedSubsectionX; sortedSubsectionY];
+            outerPoints = [outerPoints, sortedSubSection];
+            k_min = k;
+        end
+        
+        % Increment the upper boundary for the subset.
+        k_max = k;
+        
+        % If the current x-value is equal to the matrix row length, you've 
+        % found the end of the final subset.  Sort the y-values and add 
+        % the points to the return matrix.
+        if k_max == c
+            sortedSubsectionX = semiSorted(1,k_min:k_max);
+            sortedSubsectionY = sort(semiSorted(2,k_min:k_max));
+            sortedSubSection = [sortedSubsectionX; sortedSubsectionY];
+            outerPoints = [outerPoints, sortedSubSection];
         end
     end
 end
