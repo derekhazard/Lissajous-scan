@@ -20,7 +20,7 @@ for fx = fxMin:fxMax
     for fy = fyMin:fyMax
 
         % Setup input vectors
-         xi0 = [x0 y0];                  % x,y initial position vector
+        xi0 = [x0 y0];                  % x,y initial position vector
         Ai = [A B];                     % x,y amplitudes vector
         fi = [fx fy];                   % fx,fy frequencies vector
         tf = t0 + lcm(fx,fy)/(fx*fy);   % calculate scan time
@@ -350,12 +350,19 @@ end
 % not already present.  The inputs are an ordered 2xN matrix of x-y points
 % and two scalars representing the new x-y point.
 function newMatrix = addUniquePoint(matOld, x, y)
-    
+
     % Length of the ordered matrix.
-    mat_length = length(matOld);
+    [mat_height, mat_length] = size(matOld);
+
+    % Validate input
+    if ~isscalar(x) || ~isscalar(y)
+        error("Inputs for 'x' and 'y' must be scalars.")
+        
+    elseif (mat_height == 1 || mat_height > 2)
+        error("Input for 'matOld' must be an empty or 2xN matrix.")
     
     % Check to see if matrix is empty. If empty, add point.
-    if mat_length < 1
+    elseif mat_length < 1
         newMatrix = [x; y];
         
     % For cases of one or more points.
