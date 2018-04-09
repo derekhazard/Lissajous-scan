@@ -1,8 +1,9 @@
  % Clear the workspace, command window
-clear all; clc;
+clear all; 
+clc;
 
 % Input parameters
-p = 4;          % number of decimal places relevant to calculation
+p = 6;          % number of decimal places relevant to calculation
 steps = 1001;   % number of steps
 t0 = 0.000;     % start time (s)
 x0 = 0;         % x initial position (10^-6 m)
@@ -215,17 +216,7 @@ function xInter = intersections(xi1,p)
     % overlap, select a subset that is representative of the entire curve,
     % but does not have overlap. Perform the intersection analysis on this
     % subset.
-    %
-    % Store the indices where the curve starts to double over itself.
-    turn_indices = [];
-    for i=2:(c-1)
-        % Check to see if the point before and after each step is equal to
-        % see if the curve overlaps.
-        if ~round(xi1(1,i-1) - xi1(1,i+1), p) && ~round(xi1(2,i-1) - xi1(2,i+1), p)
-            turn_indices = [turn_indices, i];
-        end
-        
-    end
+    turn_indices = findTurnIndices(xi1,p);
     
     % If the curve overlaps, select a representative subset and reset the
     % size of the data set.
@@ -352,6 +343,34 @@ function xInter = intersections(xi1,p)
     end
 end
 
+% A function to see if the curve has overlapping sections.  If there is
+% overlap, select a subset that is representative of the entire curve, but 
+% does not have overlap. Inputs are a 2xN matrix of x-y points and p, the
+% precision of the calculation.
+%
+% WARNING: Use of too low of precision may lead to errors such as spurious
+% turning points due to over rounding.
+function turn_indices = findTurnIndices(xi,p)
+    
+    % Validate input
+    [r c] = size(xi);
+    if r ~= 2 && c < 3
+        error("Input for 'xi' must be a 2xN matrix where N > 2.")
+    elseif ~isscalar(p)
+        error("Input 'p' must be a scalar number.")
+    end
+
+    % Store the indices where the curve starts to double over itself.
+    turn_indices = [];
+    for i=2:(c-1)
+        % Check to see if the point before and after each step is equal to
+        % see if the curve overlaps.
+        if ~round(xi(1,i-1) - xi(1,i+1), p) && ~round(xi(2,i-1) - xi(2,i+1), p)
+            turn_indices = [turn_indices, i];
+        end
+    end
+end
+
 % A function that inserts x-y point pairs into a given ordered matrix if
 % not already present.  The inputs are an ordered 2xN matrix of x-y points
 % and two scalars representing the new x-y point.
@@ -469,15 +488,87 @@ function extrema = findExtrema(x,t,p)
 
     % Search for points where the slope changes from positive to negative
     % and return the indices.
+    m_length = length(m);
     extrema = [];
-    for i = 1:(length(m)-1)
+    for i = 1:(m_length-1)
         if (m(i) > 0) ~= (m(i+1) > 0)
-            % Choose the point with the larger magnitude.
-            if abs(m(i)) > abs(m(i+1))
-                extrema = [extrema, i];
-            else
-                extrema = [extrema, i+1];
+            % In some cases the slope can be flat and this check of the
+            % slope gives a point near but not at the extremum point.
+            % Checking the points in a small range around the extrema can
+            % lead to a better value.
+            %
+            % The first line has a positive slope indicating a maximum.
+            if m(i) > 0
+                if m_length < 10
+                    [X I]= max(x);
+                elseif i < 5
+                    [X I]= max(x(1:10));
+                elseif i + 5 <= m_length
+                    [X I]= max(x(i-4:i+5));
+                    I = I + i - 4;
+                else
+                    [X I]= max(x(i-9:end));
+                    I = I + i - 9;
+                end
+            % The first line has a negative slope indicating a minimum.
+            elseif m(i) < 0
+                if m_length < 10
+                    [X I]= min(x);
+                elseif i < 5
+                    [X I]= min(x(1:10));
+                elseif i + 5 <= m_length
+                    [X I]= min(x(i-4:i+5));
+                    I = I + i - 4;
+                else
+                    [X I]= min(x(i-9:end));
+                    I = I + i - 9;
+                end
+            % The first line has zero slope, but the second line has
+            % negative slope indicating a maximum.
+            elseif m(i+1) < 0
+                if m_length < 10
+                    [X I]= max(x);
+                elseif i < 5
+                    [X I]= max(x(1:10));
+                elseif i + 5 <= m_length
+                    [X I]= max(x(i-4:i+5));
+                    I = I + i - 4;
+                else
+                    [X I]= max(x(i-9:end));
+                    I = I + i - 9;
+                end
+            % The first line has zero slope, but the second line has
+            % positive slope indicating a minimum.
+            else 
+                if m_length < 10
+                    [X I]= min(x);
+                elseif i < 5
+                    [X I]= min(x(1:10));
+                elseif i + 5 <= m_length
+                    [X I]= min(x(i-4:i+5));
+                    I = I + i - 4;
+                else
+                    [X I]= min(x(i-9:end));
+                    I = I + i - 9 ;
+                end
             end
+            
+            % The max/min functions only return the first index where the
+            % numerical extrema occurs. If the slope is flat for a short
+            % segment, we want to take the point nearest the center as the
+            % extremum. Use a while loop to find a point nearest the true
+            % center.
+            j = I;
+            k = 0;
+            while j < m_length && ~round(x(j) - x(j + 1),p)
+                k = k + 1;
+                j = j + 1;
+            end
+            
+            I = I + round(k/2);
+            
+            % Add new point to output.
+            extrema = [extrema, I];
         end
     end
 end
@@ -487,9 +578,29 @@ function outerPoints = findOuterPoints(xi,t,p)
     
     outerPoints =[];
     
+    % Check to see if the curve has overlapping sections.  If there is
+    % overlap, select a subset that is representative of the entire curve,
+    % but does not have overlap. Perform the intersection analysis on this
+    % subset.
+    %
+    % Find the indices of the subset.
+    turn_indices = findTurnIndices(xi,p);
+    
+    % Select a representative subset and reset the size of the data set.
+    if length(turn_indices) > 1
+        xi = xi(:, turn_indices(1):turn_indices(end));
+        t = t(:, turn_indices(1):turn_indices(end));
+    end
+    
     % Find all of the outer points related to the x-extrema and y-extrema.
     xExtrema = findExtrema(xi(1,:),t,p);
     yExtrema = findExtrema(xi(2,:),t,p);
+    
+    % Add turning points to the list of extrema.
+    if length(turn_indices) > 1
+        xExtrema = [xExtrema, turn_indices - min(turn_indices)+1];
+        yExtrema = [yExtrema, turn_indices - min(turn_indices)+1];
+    end    
     
     % Compile a complete matrix of these outer points.
     unsortedPoints = [xi(:,xExtrema), xi(:,yExtrema)];
