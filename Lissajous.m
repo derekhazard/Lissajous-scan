@@ -1,6 +1,9 @@
- % Clear the workspace, command window
+% Clear the workspace, command window
 clear all; 
 clc;
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Input parameters
 p = 6;          % number of decimal places relevant to calculation
@@ -14,6 +17,23 @@ fxMin = 1;      % minimum integer x-frequency to test (Hz)
 fxMax = 10;     % maximum integer x-frequency to test (Hz)
 fyMin = 1;      % minimum integer y-frequency to test (Hz)
 fyMax = 10;     % maximum integer y-frequency to test (Hz)
+
+% Print a message letting the user know the program is running.
+fprintf('Running...\n')
+
+% Create a new directory to save plots and data. Use the status to display
+% only errors. Warnings are suppressed.
+[status, msg] = mkdir('output', 'plots');
+if ~status
+   error(msg); 
+end
+[status, msg] = mkdir('output', 'data');
+if ~status
+   error(msg); 
+end
+
+% Create a 3D array to store the resolution, fx, and fy at each step.
+
 
 % Generate data points for t, x, y, vx, vy, and VMag for each fx, fy pair
 % using nested for-loops over each fx,fy pair.
@@ -38,10 +58,22 @@ for fx = fxMin:fxMax
         % Calculate the outer edge points
         outerPoints = findOuterPoints(xi,t,p);
         
-        % Plot scan and intersection points of scan curve.
-        plot(xi(1,:),xi(2,:))
-        xlabel(fx)
-        ylabel(fy)
+        % Merge and sort the intersection and outer edge points into a
+        % single set of points.
+        
+        
+        % Use the points to inscribe trapezoids inside of the Lissajous
+        % curves.  Estimate the resolution based on the size of the
+        % trapezoids.
+        
+        % Plot scan curves and save to plots folder.
+        titleMsg = strcat('Lissajous curve for fx = ', num2str(fx));
+        titleMsg = strcat(titleMsg, ', fy = ',num2str(fy), ' (Hz)');
+        currentFig = figure('Name', titleMsg,'Visible','off');
+        plot(xi(1,:),xi(2,:));
+        title(titleMsg)
+        xlabel('x-position \mum')
+        ylabel('y-position \mum')
         hold on
         if sum(size(xInter))>0
             scatter(xInter(1,:),xInter(2,:))
@@ -49,11 +81,27 @@ for fx = fxMin:fxMax
         if sum(size(outerPoints))>0
             scatter(outerPoints(1,:),outerPoints(2,:))
         end
-        pause;
         hold off
+        fileName = pwd;
+        fileName = strcat(fileName,'/output/plots/figure_fx');
+        fileName = strcat(fileName, num2str(fx), '_fy', num2str(fy));
+        saveas(currentFig, fileName);
+        
+        % Save data to data folder.
+        
+        
     end
 end
 
+% Create a 3D plot with resolution on the z-axis and fx and fy on the x and
+% y axes respectively.
+
+
+% Print a message letting the user know the program is done.
+fprintf('Finished!\n')
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Function for rectangular coordinate position (xi, i = 1,2,...).
 %
