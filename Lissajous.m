@@ -8,7 +8,7 @@ clc;
 % Input parameters
 p = 6;          % number of decimal places relevant to calculation
 steps = 1001;   % number of steps
-t0 = 0.000;     % start time (s)
+t0 = 0;         % start time (s)
 x0 = 0;         % x initial position (10^-6 m)
 y0 = 0;         % y initial position (10^-6 m)
 A = 1;          % x peak to peak (10^-6 m)
@@ -48,9 +48,11 @@ for fx = fxMin:fxMax
         t = linspace(t0,tf,steps);      % time step vector
         
         % Calculate data points for specified fx and fy.
-        xi = Xi(xi0,Ai,fi,t);           % x,y-position points
-        vi = Vi(Ai,fi,t);               % x,y-velocity component points
+        xi = position(xi0,Ai,fi,t);     % x,y-position points
+        vi = velocity(Ai,fi,t);         % x,y-velocity component points
+        ai = acceleration(Ai,fi,t);     % x,y-acceleration component points
         v  = VMag(vi);                  % speed
+        a  = AMag(ai);                  % acceleration magnitude
         
         % Calculate intersection points
         xInter = intersections(xi,p);
@@ -60,35 +62,52 @@ for fx = fxMin:fxMax
         
         % Merge and sort the intersection and outer edge points into a
         % single set of points.
-        
+        resPoints = [xInter outerPoints];
         
         % Use the points to inscribe trapezoids inside of the Lissajous
         % curves.  Estimate the resolution based on the size of the
         % trapezoids.
         
-        % Plot scan curves and save to plots folder.
+        % Plot scan curves and intersection/extrema points, the magnitude
+        % of velocity verses time, and the magnitude of acceleration verses
+        % time. Make plots invisible to increase speed.
         titleMsg = strcat('Lissajous curve for fx = ', num2str(fx));
         titleMsg = strcat(titleMsg, ', fy = ',num2str(fy), ' (Hz)');
         currentFig = figure('Name', titleMsg,'Visible','off');
+        subplot(3,2,[1:4])
         plot(xi(1,:),xi(2,:));
         title(titleMsg)
         xlabel('x-position \mum')
         ylabel('y-position \mum')
         hold on
-        if sum(size(xInter))>0
-            scatter(xInter(1,:),xInter(2,:))
-        end
-        if sum(size(outerPoints))>0
-            scatter(outerPoints(1,:),outerPoints(2,:))
+        if sum(size(resPoints))>0
+            scatter(resPoints(1,:),resPoints(2,:))
         end
         hold off
+        subplot(3,2,5)
+        title('Magnitude of the velocity')
+        plot(t,v)
+        xlabel('time (s)')
+        ylabel('|v| (\mum/s)')
+        subplot(3,2,6)
+        title('Magnitude of the acceleration')
+        plot(t,a)
+        xlabel('time (s)')
+        ylabel('|a| (\mum/s^2)')
+        
+        % Save invisible plots to disk in the plots folder.  When opening
+        % these plots use the openfig(figName, 'visible') command or the
+        % plots will remain invisible even upon reopening.
         fileName = pwd;
         fileName = strcat(fileName,'/output/plots/figure_fx');
         fileName = strcat(fileName, num2str(fx), '_fy', num2str(fy));
         saveas(currentFig, fileName);
         
         % Save data to data folder.
-        
+        fileName = pwd;
+        fileName = strcat(fileName,'/output/data/fx');
+        fileName = strcat(fileName, num2str(fx), '_fy', num2str(fy),'.mat');
+        save(fileName, 'xi0', 'Ai', 'fi', 't', 'xi', 'vi', 'ai', 'v', 'a');
         
     end
 end
@@ -110,7 +129,7 @@ fprintf('Finished!\n')
 % in time. The rows are the i-th position and the columns are different 
 % points along the time interval. The inputs are i-th amplitude row vector 
 % Ai (m), frequency fi (Hz) and row vector time t (s).
-function xi = Xi(xi0,Ai,fi,t)
+function xi = position(xi0,Ai,fi,t)
     
     % Check inputs for errors. If there are input errors, attempt
     % corrections and warn the user, or throw an error and stop. Inputs
@@ -175,7 +194,7 @@ end
 % in time. The rows are the i-th velocity and the columns are different 
 % points along the time interval. The inputs are i-th amplitude row vector 
 % Ai (m), frequency fi (Hz) and row vector time t (s).
-function vi = Vi(Ai,fi,t)
+function vi = velocity(Ai,fi,t)
     
     % Check inputs for errors. If there are input errors, attempt
     % corrections and warn the user, or throw an error and stop. Inputs
@@ -195,7 +214,7 @@ function vi = Vi(Ai,fi,t)
         % input, transpose vector, and warn user.
         if ~isrow(fi)
             fi = fi';
-            warning('Position function input fi should be a row vector');
+            warning('Velocity function input fi should be a row vector');
         end
         
         % Check if 't' is a row vector. If not, assume column vector
@@ -224,6 +243,67 @@ end
 % are different points along the time interval (e.g. v = [vx;vy]).
 function vMag = VMag(v)
     vMag = sqrt(sum(v.^2));
+end
+
+
+% Functions for rectangular coordinate acceleration (ai, i = 1,2,...) and 
+% magnitude of acceleration.
+%
+% ai-acceleration (m/s^2)
+% This function returns a matrix with the i-th acceleration at each point 
+% in time. The rows are the i-th acceleration and the columns are different 
+% points along the time interval. The inputs are i-th amplitude row vector 
+% Ai (m), frequency fi (Hz) and row vector time t (s).
+function ai = acceleration(Ai,fi,t)
+    
+    % Check inputs for errors. If there are input errors, attempt
+    % corrections and warn the user, or throw an error and stop. Inputs
+    % Ai and fi should both be row vectors of the same size and t is a row
+    % vector.
+    if  isrow(Ai) && isrow(fi) && isrow(t) && length(Ai)==length(fi)
+        ai = -2*pi^2*(fi'.^2).*Ai'.*sin(2*pi*fi'.*t); % calculate accl
+    else
+        % Check if 'Ai' is a row vector. If not, assume column vector
+        % input, transpose vector, and warn user.
+        if ~isrow(Ai)
+            Ai = Ai';
+            warning('Acceleration function input Ai should be a row vector');
+        end
+                
+        % Check if 'fi' is a row vector. If not, assume column vector
+        % input, transpose vector, and warn user.
+        if ~isrow(fi)
+            fi = fi';
+            warning('Acceleration function input fi should be a row vector');
+        end
+        
+        % Check if 't' is a row vector. If not, assume column vector
+        % input, transpose vector, and warn user.
+        if ~isrow(t)
+            t = t';
+            warning('Acceleration function input t should be a row vector');
+        end
+        
+        % Check if 'Ai' and 't' are now row vectors and check to see if  
+        % the size of 'Ai' and 'fi' are equal. If not, throw error
+        % and stop, otherwise calculate accelerations.
+        if isrow(Ai) && isrow(fi) && isrow(t) && length(Ai)==length(fi)
+            ai = -2*pi^2*(fi'.^2).*Ai'.*sin(2*pi*fi'.*t); % calculate accl
+        else
+            message = "Error: Invalid input for acceleration function. ";
+            message = message + "Check the sizes of input vectors.";
+            error(message);
+        end
+    end
+end
+
+% acceleration magnitude (m/s^2)
+% This function returns a row vector with the magnitude of acceleration at 
+% each point in time. Input a is a matrix where the rows are ax, ay, az, 
+% etc. and the columns are different points along the time interval (e.g. 
+% a = [ax;ay]).
+function aMag = AMag(a)
+    aMag = sqrt(sum(a.^2));
 end
 
 
