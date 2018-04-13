@@ -62,7 +62,7 @@ for fx = fxMin:fxMax
         
         % Merge and sort the intersection and outer edge points into a
         % single set of points.
-        resPoints = [xInter outerPoints];
+        resPoints = sortXY([xInter outerPoints]);
         
         % Use the points to inscribe trapezoids inside of the Lissajous
         % curves.  Estimate the resolution based on the size of the
@@ -85,12 +85,10 @@ for fx = fxMin:fxMax
         end
         hold off
         subplot(3,2,5)
-        title('Magnitude of the velocity')
         plot(t,v)
         xlabel('time (s)')
         ylabel('|v| (\mum/s)')
         subplot(3,2,6)
-        title('Magnitude of the acceleration')
         plot(t,a)
         xlabel('time (s)')
         ylabel('|a| (\mum/s^2)')
@@ -733,6 +731,14 @@ function outerPoints = findOuterPoints(xi,t,p)
     % Compile a complete matrix of these outer points.
     unsortedPoints = [xi(:,xExtrema), xi(:,yExtrema)];
 
+    % Sort the extrema points.
+    outerPoints = sortXY(unsortedPoints);
+end
+
+function sorted = sortXY(unsortedPoints)
+    
+    sorted = [];
+
     % Partially sort the matrix based on the x-values.
     [semiSorted, semiSortInd] = sort(unsortedPoints(1,:));
     semiSorted = [semiSorted; unsortedPoints(2,semiSortInd)];
@@ -752,7 +758,7 @@ function outerPoints = findOuterPoints(xi,t,p)
             sortedSubsectionX = semiSorted(1,k_min:k_max);
             sortedSubsectionY = sort(semiSorted(2,k_min:k_max));
             sortedSubSection = [sortedSubsectionX; sortedSubsectionY];
-            outerPoints = [outerPoints, sortedSubSection];
+            sorted = [sorted, sortedSubSection];
             k_min = k;
         end
         
@@ -766,7 +772,7 @@ function outerPoints = findOuterPoints(xi,t,p)
             sortedSubsectionX = semiSorted(1,k_min:k_max);
             sortedSubsectionY = sort(semiSorted(2,k_min:k_max));
             sortedSubSection = [sortedSubsectionX; sortedSubsectionY];
-            outerPoints = [outerPoints, sortedSubSection];
+            sorted = [sorted, sortedSubSection];
         end
     end
 end
